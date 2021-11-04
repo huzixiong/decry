@@ -38,6 +38,14 @@ def RC4Base(input, mKkey):
         xorIndex = ((key[x] & 0xff) + (key[y] & 0xff)) & 0xff
         result[i] = (input[i] ^ key[xorIndex])
     return result
+    
+def encryRC4Byte(data, key, chartSet='utf-8'):
+    if not chartSet:
+        bData = [ord(i) for i in data]
+        return RC4Base(bData, key)
+    else:
+        bData = list(data.encode(chartSet))
+        return RC4Base(bData, key)
 
 
 def decryRC4(data, key='**************', chartSet='utf-8'):
