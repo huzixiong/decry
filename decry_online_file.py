@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 
@@ -38,7 +39,14 @@ def RC4Base(input, mKkey):
         xorIndex = ((key[x] & 0xff) + (key[y] & 0xff)) & 0xff
         result[i] = (input[i] ^ key[xorIndex])
     return result
-    
+
+
+def decryRC4(data, key='ukelinkucservice', chartSet='utf-8'):
+    r = RC4Base(hexToByte(data), key)
+    # print(bytes(r).decode(chartSet))
+    return bytes(r).decode(chartSet,errors='ignore')
+
+
 def encryRC4Byte(data, key, chartSet='utf-8'):
     if not chartSet:
         bData = [ord(i) for i in data]
@@ -48,31 +56,57 @@ def encryRC4Byte(data, key, chartSet='utf-8'):
         return RC4Base(bData, key)
 
 
-def decryRC4(data, key='**************', chartSet='utf-8'):
-    r = RC4Base(hexToByte(data), key)
-    # print(bytes(r).decode(chartSet))
-    return bytes(r).decode(chartSet)
-
-
 def subprocess_exc():
     return subprocess.Popen("adb shell logcat", stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
-def decry_uaflogs(file):
+def re_find_out(args, s):
+    pattern = re.compile(args, re.I | re.M)
+    str_find_out = re.search(pattern, s)
+    if str_find_out == None:
+        return False
+    else:
+        return True
+
+
+def decry_uaflogs(file, cmd=''):
     while True:
-        sub_file = file.stdout.readline().decode(encoding='utf-8',errors='ignore')
+        sub_file = file.stdout.readline().decode(encoding='utf-8', errors='ignore')
         if sub_file == '':
-            print("stdout.readline return None,break")
+            print("wait for device....")
             return False
 
         elif sub_file.find('JLog') != -1:
-            split_time,split_file = sub_file.rsplit(":", maxsplit=1)
+            split_time, split_file = sub_file.rsplit(":", maxsplit=1)
             code_file = split_file.strip()
             decry_log = decryRC4(code_file)
-            total_log = ':'.join([split_time,decry_log])
-            if total_log.find("Key Step") != -1 or total_log.find("SOFT_SIM") != -1:
+            total_log = ': '.join([split_time, decry_log])
+            # print(total_log)
+            # if total_log.find("Key Step") != -1 or total_log.find("SOFT_SIM") != -1:
+            #     print(total_log)
+            if cmd == '':
+                print(total_log)
+            if re_find_out(cmd,total_log):
                 print(total_log)
 
+
+def main():
+    print("""说明：
+1、用于uservice log在线抓取，实时解密打印云卡log。请确保设备和电脑通过usb线连接。
+2、多个关键字用|隔开,不过滤直接回车。
+3、过滤关键字不区分大小写。
+4、支持开启多个窗口，每个窗口过滤不同log信息。
+-------------------------------------------------
+""")
+
+    input_cmd = input("请输入关键字：")
+
+    while True:
+        subprocess.getoutput("adb wait-for-device")
+        print("device connected")
+        logs = subprocess_exc()
+        decry_uaflogs(logs,input_cmd)
+
+
 if __name__ == "__main__":
-    f = subprocess_exc()
-    decry_uaflogs(f)
+    main()
